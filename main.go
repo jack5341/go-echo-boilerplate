@@ -13,8 +13,6 @@ import (
 	"backend/pkg/config"
 	"backend/pkg/database"
 
-	_ "backend/docs"
-
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/otel"
 

@@ -5,9 +5,27 @@ services:
     restart: always
     ports:
       - 5432:5432
+    network_mode: "host"
     environment:
       POSTGRES_USER: test-admin
       POSTGRES_PASSWORD: test-pass
       POSTGRES_DB: testdb
     volumes:
       - /var/lib/test-db:/var/lib/postgresql/data
+
+  # backend:
+  #   image: 0.dkr.ecr.eu-central-1.amazonaws.com/go-boilerplate:latest
+  #   restart: always
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - 8080
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.docker.network=traefik"
+  #     - "traefik.http.routers.go-boilerplate.rule=Host(`go-boilerplate.nedim-akar.cloud`) && PathPrefix(`/`)"
+  #     - "traefik.http.routers.go-boilerplate.entrypoints=websecure"
+  #     - "traefik.http.routers.go-boilerplate.tls.certresolver=letsencrypt"
+  #   networks:
+  #     - backend
+  #     - traefik

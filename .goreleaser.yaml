@@ -1,0 +1,31 @@
+project_name: go-boilerplate
+builds:
+  - env: [CGO_ENABLED=0]
+    goos:
+      - linux
+    goarch:
+      - amd64
+dockers:
+  - image_templates:
+      [
+        "0.dkr.ecr.eu-central-1.amazonaws.com/pikachu/go-boilerplate:{{ .Version }}",
+      ]
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.url=0.dkr.ecr.eu-central-1.amazonaws.com
+      - --label=org.opencontainers.image.source=0.dkr.ecr.eu-central-1.amazonaws.com
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.created={{ time "2006-01-02T15:04:05Z07:00" }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+      - --label=org.opencontainers.image.licenses=Apache-2.0
+nfpms:
+  - maintainer: Nedim Akar <nedim.akar53411@gmail.com>
+    description: Backend source code of go boilerplate.
+    homepage: https://github.com/jack5341/go-echo-boilerplate
+    license: Apache-2.0
+    formats:
+      - deb
+      - rpm
+      - apk

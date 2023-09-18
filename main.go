@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"backend/internal/handler"
+	"backend/internal/middlewares"
 	"backend/internal/svc"
 	"backend/pkg/config"
 	"backend/pkg/database"
@@ -68,13 +69,6 @@ func main() {
 	cfg.DevMode = env
 
 	if !cfg.DevMode {
-		e.Use(middleware.BodyLimit("30MB"))
-		e.Use(middleware.Decompress())
-		e.Use(middleware.Gzip())
-		e.Use(middleware.Recover())
-		e.Use(middleware.Logger())
-		e.Use(otelecho.Middleware("go-boilerplate"))
-		e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(50)))
 		e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 			AllowOrigins: []string{"go-boilerplate.nedim-akar.cloud"},
 			AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
@@ -103,6 +97,15 @@ func main() {
 		})
 	}
 
+	e.Use(otelecho.Middleware("go-boilerplate"))
+	e.Use(middleware.BodyLimit("30MB"))
+	e.Use(middleware.Decompress())
+	e.Use(middleware.Gzip())
+	e.Use(middleware.Recover())
+	e.Use(middleware.Logger())
+	e.Use(middleware.RequestID())
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(50)))
+
 	// Health Check
 	e.GET("/healthz", func(c echo.Context) error {
 		ctx := c.Request().Context()
@@ -114,6 +117,7 @@ func main() {
 	})
 
 	serviceCtx := svc.NewServiceContext(cfg, database.DB, e, &tracer)
+	e.Use(middlewares.Trace(serviceCtx))
 	handler.RegisterHandlers(serviceCtx)
 
 	s := http.Server{

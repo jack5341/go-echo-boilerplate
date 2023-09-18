@@ -6,10 +6,6 @@ type App struct {
 		HONEYCOMB_WRITEKEY     string `env:"HONEYCOMB_WRITEKEY"`
 		HONEYCOMB_DATASET      string `env:"HONEYCOMB_DATASET"`
 	}
-	DEV   string `env:"IS_DEV, default=true"`
-	PORT  string `env:"PORT, default=8080"`
-	DKRON struct {
-		BASEURL  string `env:"DKRON_BASE_URL, default=localhost:8080"`
-		TARGEURL string `env:"DKRON_TARGET_URL, default=localhost:8080/mail"`
-	}
+	DEV  string `env:"IS_DEV, default=true"`
+	PORT string `env:"PORT, default=8080"`
 }

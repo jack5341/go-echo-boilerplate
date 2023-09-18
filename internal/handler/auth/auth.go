@@ -50,12 +50,12 @@ func SignUp(s *svc.ServiceContext) echo.HandlerFunc {
 		tracer := *s.Tracer
 		_, span := tracer.Start(c.Request().Context(), "handler.SignUp")
 		defer span.End()
-		span.SetAttributes(attribute.String("http.method", "POST"), attribute.String("http.route", "/auth/signup"))
 
 		var user UserAttributes
 		err := c.Bind(&user)
 
 		if err != nil {
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusBadRequest))
 			span.RecordError(err)
 			return c.JSON(http.StatusBadRequest, echo.Map{
 				"message": "Something is missing, please check the form data and try again",
@@ -64,6 +64,7 @@ func SignUp(s *svc.ServiceContext) echo.HandlerFunc {
 		}
 
 		if user.Username == "" || user.Password == "" || user.SubscriptionStatus == "" || user.FirstName == "" || user.LastName == "" {
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusBadRequest))
 			return c.JSON(http.StatusBadRequest, echo.Map{
 				"message": "Username, password, first name and last name are required fields",
 			})
@@ -99,6 +100,7 @@ func SignUp(s *svc.ServiceContext) echo.HandlerFunc {
 			if aerr, ok := err.(awserr.Error); ok {
 				switch aerr.Code() {
 				case cognitoidentityprovider.ErrCodeInvalidParameterException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusBadGateway))
 					span.RecordError(err)
 					return c.JSON(http.StatusBadGateway, echo.Map{
 						"message": "Email and Password is required arguments",
@@ -106,6 +108,7 @@ func SignUp(s *svc.ServiceContext) echo.HandlerFunc {
 					})
 
 				case cognitoidentityprovider.ErrCodeUsernameExistsException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusConflict))
 					span.RecordError(err)
 					return c.JSON(http.StatusConflict, echo.Map{
 						"message": "An account with the given email already exists",
@@ -113,6 +116,7 @@ func SignUp(s *svc.ServiceContext) echo.HandlerFunc {
 					})
 
 				case cognitoidentityprovider.ErrCodeInvalidPasswordException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusBadRequest))
 					span.RecordError(err)
 					return c.JSON(http.StatusBadRequest, echo.Map{
 						"message": "Password must include uppercase, special-character and number",
@@ -120,6 +124,7 @@ func SignUp(s *svc.ServiceContext) echo.HandlerFunc {
 					})
 
 				default:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 					span.RecordError(err)
 					return c.JSON(http.StatusInternalServerError, echo.Map{
 						"message": "Something wen't wrong while sign up",
@@ -127,6 +132,7 @@ func SignUp(s *svc.ServiceContext) echo.HandlerFunc {
 					})
 				}
 			} else {
+				span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 				span.RecordError(err)
 				return c.JSON(http.StatusInternalServerError, echo.Map{
 					"message": "Something wen't wrong while sign up",
@@ -155,12 +161,12 @@ func SignIn(s *svc.ServiceContext) echo.HandlerFunc {
 		tracer := *s.Tracer
 		_, span := tracer.Start(c.Request().Context(), "handler.SignIn")
 		defer span.End()
-		span.SetAttributes(attribute.String("http.method", "POST"), attribute.String("http.route", "/auth/signin"))
 
 		var user UserAttributes
 		err := c.Bind(&user)
 
 		if err != nil {
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusBadRequest))
 			span.RecordError(err)
 			return c.JSON(http.StatusBadRequest, echo.Map{
 				"message": "Something is missing, please check the form data and try again",
@@ -169,6 +175,7 @@ func SignIn(s *svc.ServiceContext) echo.HandlerFunc {
 		}
 
 		if user.Username == "" || user.Password == "" {
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusBadRequest))
 			return c.JSON(http.StatusBadRequest, echo.Map{
 				"message": "Username and Password are required fields",
 			})
@@ -190,12 +197,14 @@ func SignIn(s *svc.ServiceContext) echo.HandlerFunc {
 			if aerr, ok := err.(awserr.Error); ok {
 				switch aerr.Code() {
 				case cognitoidentityprovider.ErrCodeUserNotConfirmedException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusUnauthorized))
 					span.RecordError(err)
 					return c.JSON(http.StatusUnauthorized, echo.Map{
 						"message": "Email is not confirmed.",
 						"error":   err.Error(),
 					})
 				case cognitoidentityprovider.ErrCodeNotAuthorizedException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusUnauthorized))
 					span.RecordError(err)
 					return c.JSON(http.StatusUnauthorized, echo.Map{
 						"message": "Incorrect email or password.",
@@ -203,6 +212,7 @@ func SignIn(s *svc.ServiceContext) echo.HandlerFunc {
 					})
 
 				default:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 					span.RecordError(err)
 					return c.JSON(http.StatusInternalServerError, echo.Map{
 						"message": "Something wen't wrong while sign up",
@@ -210,6 +220,7 @@ func SignIn(s *svc.ServiceContext) echo.HandlerFunc {
 					})
 				}
 			} else {
+				span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 				span.RecordError(err)
 				return c.JSON(http.StatusInternalServerError, echo.Map{
 					"message": "Something wen't wrong while sign up",
@@ -222,7 +233,6 @@ func SignIn(s *svc.ServiceContext) echo.HandlerFunc {
 		cookie.Name = "token"
 		cookie.Value = *authOutput.AuthenticationResult.IdToken
 		c.SetCookie(cookie)
-
 		return c.JSON(http.StatusOK, echo.Map{
 			"message":      "You have successfully signed in!",
 			"refreshToken": authOutput.AuthenticationResult.RefreshToken,
@@ -245,7 +255,6 @@ func VerifyEmail(s *svc.ServiceContext) echo.HandlerFunc {
 		tracer := *s.Tracer
 		_, span := tracer.Start(c.Request().Context(), "handler.VerifyEmail")
 		defer span.End()
-		span.SetAttributes(attribute.String("http.method", "POST"), attribute.String("http.route", "/auth/verify"))
 		username := c.FormValue("username")
 		code := c.FormValue("code")
 
@@ -261,6 +270,7 @@ func VerifyEmail(s *svc.ServiceContext) echo.HandlerFunc {
 			if aerr, ok := err.(awserr.Error); ok {
 				switch aerr.Code() {
 				case cognitoidentityprovider.ErrCodeCodeMismatchException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 					span.RecordError(err)
 					return c.JSON(http.StatusUnauthorized, echo.Map{
 						"message": "Invalid verification code provided, please try again.",
@@ -345,7 +355,6 @@ func RefreshToken(s *svc.ServiceContext) echo.HandlerFunc {
 		tracer := *s.Tracer
 		_, span := tracer.Start(c.Request().Context(), "handler.RefreshToken")
 		defer span.End()
-		span.SetAttributes(attribute.String("http.method", "POST"), attribute.String("http.route", "/auth/refresh-token"))
 
 		var refreshTokenReq struct {
 			RefreshToken string `form:"refreshToken"`
@@ -382,23 +391,26 @@ func RefreshToken(s *svc.ServiceContext) echo.HandlerFunc {
 			if aerr, ok := err.(awserr.Error); ok {
 				switch aerr.Code() {
 				case cognitoidentityprovider.ErrCodeNotAuthorizedException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusUnauthorized))
 					span.RecordError(err)
 					return c.JSON(http.StatusUnauthorized, echo.Map{
 						"message": "Refresh token is invalid or expired",
 					})
 				case cognitoidentityprovider.ErrCodeUserNotConfirmedException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusUnauthorized))
 					span.RecordError(err)
 					return c.JSON(http.StatusUnauthorized, echo.Map{
 						"message": "User email is not confirmed",
 					})
 				default:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 					span.RecordError(err)
 					return c.JSON(http.StatusInternalServerError, echo.Map{
 						"message": "Something went wrong while refreshing the token",
 					})
 				}
 			} else {
-				// Handle other non-AWS Cognito errors
+				span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 				span.RecordError(err)
 				return c.JSON(http.StatusInternalServerError, echo.Map{
 					"message": "Something went wrong while refreshing the token",
@@ -430,7 +442,6 @@ func ResetPassword(s *svc.ServiceContext) echo.HandlerFunc {
 		tracer := *s.Tracer
 		_, span := tracer.Start(c.Request().Context(), "handler.ResetPassword")
 		defer span.End()
-		span.SetAttributes(attribute.String("http.method", "POST"), attribute.String("http.route", "/auth/reset-password"))
 
 		username := c.FormValue("username")
 		code := c.FormValue("code")
@@ -456,27 +467,32 @@ func ResetPassword(s *svc.ServiceContext) echo.HandlerFunc {
 			if aerr, ok := err.(awserr.Error); ok {
 				switch aerr.Code() {
 				case cognitoidentityprovider.ErrCodeCodeMismatchException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusUnauthorized))
 					span.RecordError(err)
 					return c.JSON(http.StatusUnauthorized, echo.Map{
 						"message": "Invalid verification code",
 					})
 				case cognitoidentityprovider.ErrCodeExpiredCodeException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusUnauthorized))
 					span.RecordError(err)
 					return c.JSON(http.StatusUnauthorized, echo.Map{
 						"message": "Verification code has expired",
 					})
 				case cognitoidentityprovider.ErrCodeUserNotFoundException:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusNotFound))
 					span.RecordError(err)
 					return c.JSON(http.StatusNotFound, echo.Map{
 						"message": "User not found",
 					})
 				default:
+					span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 					span.RecordError(err)
 					return c.JSON(http.StatusInternalServerError, echo.Map{
 						"message": "Something went wrong while resetting the password",
 					})
 				}
 			} else {
+				span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 				span.RecordError(err)
 				return c.JSON(http.StatusInternalServerError, echo.Map{
 					"message": "Something went wrong while resetting the password",

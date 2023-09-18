@@ -63,8 +63,11 @@ func AuthValidator(next echo.HandlerFunc) echo.HandlerFunc {
 
 		if tokenString == "" {
 			span.RecordError(errors.New("token couldn't be parsed"))
-			span.SetAttributes(attribute.Key("AuthHeader").String(authHeader))
-			return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusBadRequest))
+			return c.JSON(http.StatusBadRequest, echo.Map{
+				"message": "Something went wrong",
+				"error":   errors.New("token is required"),
+			})
 		}
 
 		cfg := config.InitConfig()
@@ -72,6 +75,7 @@ func AuthValidator(next echo.HandlerFunc) echo.HandlerFunc {
 		token, err := jwt.Parse(tokenString, keyFunc)
 
 		if err != nil {
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 			span.RecordError(err)
 			return c.JSON(http.StatusInternalServerError, echo.Map{
 				"message": "Something went wrong",
@@ -80,6 +84,7 @@ func AuthValidator(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		if !token.Valid {
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusInternalServerError))
 			return c.JSON(http.StatusUnauthorized, echo.Map{
 				"message": "Invalid access token",
 			})
@@ -87,6 +92,7 @@ func AuthValidator(next echo.HandlerFunc) echo.HandlerFunc {
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusBadRequest))
 			return c.JSON(http.StatusBadRequest, echo.Map{
 				"message": "Failed to get token claims",
 			})
@@ -94,6 +100,7 @@ func AuthValidator(next echo.HandlerFunc) echo.HandlerFunc {
 
 		userId, ok := claims["cognito:username"].(string)
 		if !ok {
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusBadRequest))
 			return c.JSON(http.StatusBadRequest, echo.Map{
 				"message": "Failed to get subject claim",
 			})
@@ -101,6 +108,7 @@ func AuthValidator(next echo.HandlerFunc) echo.HandlerFunc {
 
 		expirationTime := time.Unix(int64(claims["exp"].(float64)), 0)
 		if time.Now().After(expirationTime) {
+			span.SetAttributes(attribute.Key("http.status_code").Int(http.StatusUnauthorized))
 			return c.JSON(http.StatusUnauthorized, echo.Map{
 				"message": "Access token has expired",
 			})
